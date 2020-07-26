@@ -17,8 +17,8 @@ Example:
 
 ```
 
-With that coordiante, you get back a value for that coordinate which is `v` here and this value is between -1 and 1.
-And this value is gonna be slowly varying between -1 and 1 based on the coordinate you pass in
+With that coordiante, we get back a value for that coordinate which is `v` here and this value is between -1 and 1.
+And this value is gonna be slowly varying between -1 and 1 based on the coordinate we pass in
 
 ```
     // Value is in -1...1 range
