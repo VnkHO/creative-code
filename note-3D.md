@@ -18,6 +18,7 @@ Debugging purpose, it allows us to see and visualize the faces of the mesh.
 When we start to try and replicate more of like, *what is around us with lighting, shading, shadow*. That is where we well is use *MeshStandardMaterial*
 So if we don't have a light in our scene, we are not going to be able to see anything. (Try to be more like real life)
 
+
 ## Geometry
 
 **TorusGeometry**
@@ -53,6 +54,39 @@ It just changes the way that we see this virtual world.
 Everyting looks kind of flat and it looks kind of two-dimensional and it's actually a very good camera for our sort of artsy purposes.
 Example create a 2D, 2.5D game, etc..
 
-
+---
 
 And when we combine all that we end up with an image, or an animation.
+
+---
+
+Real positioning instead of pixel, etc...
+
+```
+    // Create the mesh
+    for (let i = 0; i < 10; i++) {
+        const mesh = new THREE.Mesh(geometry, material)
+
+        // Smaller cube
+        mesh.scale.setScalar(0.5)
+
+        // 2D - TOP LEFT --> 0; 0 || BOTTOM LEFT --> height; width of the screen
+        // 3D --> `Virtual world` with these arbitrary coordinates.
+        // Better to think it about of it in terms of real world units like (cm, meters, inches, ...)
+        // So let's say we want everything in our virtual world to be in meters and then we specify an origin and everything is relative to that origin.
+        // So for example the center is 0, 0, 0.
+        mesh.position.set(Math.random(), Math.random(), Math.random())
+
+        mesh.scale.multiplyScalar(0.1) // Function that will multiply the x, y and z by the same number value that you give it
+        // Then add the group to the scene
+        scene.add(mesh)
+  }
+
+```
+
+```
+
+  // Pass a color, and intensity
+  const light = new THREE.DirectionalLight('red', 1)
+
+```

@@ -6,10 +6,7 @@ const palettes = require('nice-color-palettes')
 
 const settings = {
   animate: true,
-  // dimensions: [1024, 1280],
-  dimensions: [512, 512],
-  fps: 24,
-  duration: 4,
+  dimensions: [1024, 1280],
   // Get a WebGL canvas rather than 2D
   context: 'webgl',
   // Turn on MSAA
@@ -23,7 +20,7 @@ const sketch = ({context, width, height}) => {
   })
 
   // WebGL background color
-  renderer.setClearColor('hsl(0, 0%, 90%)', 1)
+  renderer.setClearColor('hsl(0, 0%, 95%)', 1)
 
   // Setup a camera, we will update its settings on resize
   const camera = new THREE.OrthographicCamera()
@@ -31,50 +28,97 @@ const sketch = ({context, width, height}) => {
   // Setup your scene
   const scene = new THREE.Scene()
 
-  const colorCount = random.rangeFloor(2, 6)
-  const palette = random.shuffle(random.pick(palettes)).slice(0, colorCount)
+  // Get a palette for our scene
+  const palette = random.pick(palettes)
+
+  // Snap 0..1 point to a -1..1 grid
+  const grid = (n, gridSize) => {
+    const max = gridSize - 1
+    const snapped = Math.round(n * max) / max
+    return snapped * 2 - 1
+  }
+
+  // Randomize mesh attributes
+  const randomizeMesh = (mesh) => {
+    const gridSize = random.rangeFloor(3, 11)
+    // Choose a random grid point in a 3D volume between -1..1
+    const point = new THREE.Vector3(
+      grid(random.value(), gridSize),
+      grid(random.value(), gridSize),
+      grid(random.value(), gridSize),
+    )
+
+    // Stretch it vertically
+    point.y *= 1.5
+    // Scale all the points closer together
+    point.multiplyScalar(0.5)
+    point.y -= 0.65
+
+    // Save position
+    mesh.position.copy(point)
+    mesh.originalPosition = mesh.position.clone()
+
+    // Choose a color for the mesh material
+    mesh.material.color.set(random.pick(palette))
+
+    // Randomly scale each axis
+    mesh.scale.set(random.gaussian(), random.gaussian(), random.gaussian())
+
+    // Do more random scaling on each axis
+    if (random.chance(0.5)) mesh.scale.x *= random.gaussian()
+    if (random.chance(0.5)) mesh.scale.y *= random.gaussian()
+    if (random.chance(0.5)) mesh.scale.z *= random.gaussian()
+
+    // Further scale each object
+    mesh.scale.multiplyScalar(random.gaussian() * 0.25)
+
+    // Store the scale
+    mesh.originalScale = mesh.scale.clone()
+
+    // Set some time properties on each mesh
+    mesh.time = 0
+    mesh.duration = random.range(1, 4)
+  }
+
+  // A group that will hold all of our cubes
+  const container = new THREE.Group()
 
   // Re-use the same Geometry across all our cubes
   const geometry = new THREE.BoxGeometry(1, 1, 1)
 
-  // Basic "unlit" material with no depth
+  // The # of cubes to create
+  const chunks = 50
 
-  // Create the mesh
-  for (let i = 0; i < 40; i++) {
-    const mesh = new THREE.Mesh(
-      geometry,
-      new THREE.MeshStandardMaterial({color: random.pick(palette)}),
-    )
-    // Smaller cube
-    mesh.scale.setScalar(0.5)
+  // Create each cube and return a THREE.Mesh
+  const meshes = Array.from(new Array(chunks)).map(() => {
+    // Basic "unlit" material with no depth
+    const material = new THREE.MeshStandardMaterial({
+      metalness: 0,
+      roughness: 1,
+      color: random.pick(palette),
+    })
 
-    // 2D - TOP LEFT --> 0; 0 || BOTTOM LEFT --> height; width of the screen
-    // 3D --> `Virtual world` with these arbitrary coordinates.
-    // Better to think it about of it in terms of real world units like (cm, meters, inches, ...)
-    // So let's say we want everything in our virtual world to be in meters and then we specify an origin and everything is relative to that origin.
-    // So for example the center is 0, 0, 0.
-    mesh.position.set(
-      random.range(-1, 1),
-      random.range(-1, 1),
-      random.range(-1, 1),
-    )
+    // Create the mesh
+    const mesh = new THREE.Mesh(geometry, material)
 
-    mesh.scale.set(
-      random.range(-1, 1),
-      random.range(-1, 1),
-      random.range(-1, 1),
-    )
+    // Randomize it
+    randomizeMesh(mesh)
 
-    mesh.scale.multiplyScalar(0.5) // Function that will multiply the x, y and z by the same number value that you give it
-    // Then add the group to the scene
-    scene.add(mesh)
-  }
+    // Set an initially random time
+    mesh.time = random.range(0, mesh.duration)
 
-  scene.add(new THREE.AmbientLight('hsl(0, 0, 20%'))
+    return mesh
+  })
 
-  // Pass a color, and intensity
+  // Add meshes to the group
+  meshes.forEach((m) => container.add(m))
+
+  // Then add the group to the scene
+  scene.add(container)
+
+  // Add a harsh light to the scene
   const light = new THREE.DirectionalLight('white', 1)
-  light.position.set(0, 0, 4)
+  light.position.set(0, 0, 2)
   scene.add(light)
 
   // draw each frame
@@ -100,8 +144,39 @@ const sketch = ({context, width, height}) => {
       camera.updateProjectionMatrix()
     },
     // And render events here
-    render({playhead}) {
-      scene.rotation.z = playhead * Math.PI * 2
+    render({time, deltaTime}) {
+      // Animate each mesh with noise
+      meshes.forEach((mesh) => {
+        // Each mesh has its own time that increases each frame
+        mesh.time += deltaTime
+
+        // If it hits the end of its life, reset it
+        if (mesh.time > mesh.duration) {
+          randomizeMesh(mesh)
+        }
+
+        // Scale meshes in and out
+        mesh.scale.copy(mesh.originalScale)
+        mesh.scale.multiplyScalar(
+          Math.sin((mesh.time / mesh.duration) * Math.PI),
+        )
+
+        // Move meshes up
+        mesh.position.y += deltaTime * 0.5
+
+        // Add slight movement
+        const f = 0.5
+        mesh.scale.y =
+          mesh.originalScale.y +
+          0.25 *
+            random.noise3D(
+              mesh.originalPosition.x * f,
+              mesh.originalPosition.y * f,
+              mesh.originalPosition.z * f,
+              time * 0.25,
+            )
+      })
+
       // Draw scene with our camera
       renderer.render(scene, camera)
     },
